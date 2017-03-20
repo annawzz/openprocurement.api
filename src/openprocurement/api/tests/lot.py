@@ -1242,8 +1242,12 @@ class TenderLotProcessTest(BaseTenderWebTest):
         self.assertEqual(response.json['data']['status'], 'active.qualification')
         # for second lot
         lot_id = lots[1]
-        # get awards
+        # get bids
         self.app.authorization = ('Basic', ('broker', ''))
+        response = self.app.get('/tenders/{}/bids?acc_token={}'.format(tender_id, owner_token))
+        self.assertEqual(len(response.json['data']), 1)
+        self.assertEqual(response.json['data'][0]['lotValues'][0]['relatedLot'], lot_id)
+        # get awards
         response = self.app.get('/tenders/{}/awards?acc_token={}'.format(tender_id, owner_token))
         # get pending award
         award_id = [i['id'] for i in response.json['data'] if i['status'] == 'pending' and i['lotID'] == lot_id][0]
