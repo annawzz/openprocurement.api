@@ -1,5 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
+import json
+import decimal
+import simplejson
+import couchdb.json
+from couchdb import util
 from logging import getLogger
 from datetime import datetime, timedelta
 from base64 import b64encode, b64decode
@@ -19,6 +24,7 @@ from Crypto.Cipher import AES
 from cornice.util import json_error
 from json import dumps
 
+from pyramid.compat import text_
 from schematics.exceptions import ValidationError
 from couchdb_schematics.document import SchematicsDocument
 from openprocurement.api.events import ErrorDesctiptorEvent
@@ -30,7 +36,7 @@ from openprocurement.api.constants import (
 from openprocurement.api.interfaces import IOPContent
 from openprocurement.api.interfaces import IContentConfigurator
 
-json_view = partial(view, renderer='json')
+json_view = partial(view, renderer='simplejson')
 
 
 def validate_dkpp(items, *args):
@@ -572,3 +578,25 @@ def set_modetest_titles(item):
         item.title_en = u'[TESTING] {}'.format(item.title_en or u'')
     if not item.title_ru or u'[ТЕСТИРОВАНИЕ]' not in item.title_ru:
         item.title_ru = u'[ТЕСТИРОВАНИЕ] {}'.format(item.title_ru or u'')
+
+
+def json_body(self):
+    return simplejson.loads(text_(self.body, self.charset), parse_float=decimal.Decimal)
+
+
+class DecimalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return str(obj)
+        return super(DecimalEncoder, self).default(obj)
+
+
+def couchdb_json_decode():
+    my_encode = lambda obj, dumps=dumps: dumps(obj, cls=DecimalEncoder)
+
+    def my_decode(string_):
+        if isinstance(string_, util.btype):
+            string_ = string_.decode("utf-8")
+        return json.loads(string_, parse_float=decimal.Decimal)
+
+    couchdb.json.use(decode=my_decode, encode=my_encode)
